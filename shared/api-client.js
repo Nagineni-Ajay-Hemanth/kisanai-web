@@ -7,20 +7,43 @@
 const CONFIG_URL = "https://kisanai.ajayhemanth90.workers.dev/";
 
 // Global variables
+// Global variables
 let API_BASE_URL = "http://localhost:8000"; // Default fallback
 let CONFIG_LOADED = false;
 
-// Configuration Loader - Called ONLY ONCE when app starts
+// Helper to get relative path to root
+function getRootPath() {
+    const path = window.location.pathname;
+    if (path.includes('/farmer/') || path.includes('/customer/') || path.includes('/auth/') ||
+        path.includes('/disease/') || path.includes('/weather/') || path.includes('/market/') ||
+        path.includes('/community/') || path.includes('/advice/') || path.includes('/fertilizer/') ||
+        path.includes('/schemes/') || path.includes('/water/') || path.includes('/protect/') ||
+        path.includes('/info/')) {
+        return '../';
+    }
+    return '';
+}
+
+// Configuration Loader
 async function loadConfig() {
     try {
-        console.log("⟳ [ONE-TIME] Fetching config from Cloudflare Workers...");
-        const response = await fetch(CONFIG_URL, {
-            cache: 'no-cache',
-            headers: {
-                'Cache-Control': 'no-cache',
-                'Accept': 'application/json'
+        // 1. Try local config.json first (Website mode)
+        const localConfigPath = getRootPath() + 'config.json';
+        const localResponse = await fetch(localConfigPath).catch(() => null);
+
+        if (localResponse && localResponse.ok) {
+            const config = await localResponse.json();
+            if (config.API_URL) {
+                API_BASE_URL = config.API_URL.replace(/\/$/, "");
+                CONFIG_LOADED = true;
+                console.log("✓ Loaded config from local config.json:", API_BASE_URL);
+                return config;
             }
-        });
+        }
+
+        // 2. Fallback to Cloudflare Worker (Global mode)
+        console.log("⟳ Fetching config from Cloudflare Worker...");
+        const response = await fetch(CONFIG_URL, { cache: 'no-cache' });
 
         if (!response.ok) {
             throw new Error(`Config fetch failed: ${response.status}`);
@@ -169,7 +192,7 @@ class KisanAIApi {
         if (lon) params.push(`lon=${lon}`);
 
         // Add language param
-        const lang = localStorage.getItem('appLanguage') || 'en';
+        const lang = localStorage.getItem('language') || 'en';
         params.push(`language=${lang}`);
 
         if (params.length > 0) {
@@ -302,23 +325,33 @@ const SessionManager = {
         return !!this.getUser();
     },
     redirectToLogin() {
-        if (window.location.protocol === 'file:') {
-            const path = window.location.pathname;
-            // /android_asset/index.html -> split gives ["", "android_asset", "index.html"] (length 3)
-            // /android_asset/disease/index.html -> split gives ["", "android_asset", "disease", "index.html"] (length 4)
-            if (path.split('/').length <= 3) {
-                window.location.href = "auth/login.html";
-            } else {
-                window.location.href = "../auth/login.html";
-            }
+        const path = window.location.pathname;
+
+        // If it's a website or file: logic
+        // Count nesting level relative to root (defined by where index.html usually is)
+        // For a standalone website, we want to go back to the root's auth/login.html
+
+        const lang = localStorage.getItem('appLanguage') || 'en';
+
+        // Simpler relative path finder:
+        // We look for where 'auth' or 'shared' folders are and go from there.
+        // But for most cases:
+        if (path.includes('/auth/')) {
+            // Already in auth folder or subfolder
+            return;
+        }
+
+        if (path.includes('/farmer/') || path.includes('/customer/') || path.includes('/disease/') ||
+            path.includes('/weather/') || path.includes('/market/') || path.includes('/community/')) {
+            window.location.href = "../auth/login.html";
         } else {
-            window.location.href = "/auth/login.html";
+            window.location.href = "auth/login.html";
         }
     },
     requireAuth() {
         if (!this.isLoggedIn()) {
-            // Avoid redirect loop if already on login page
-            if (window.location.href.includes('auth/login.html')) return;
+            // Avoid redirect loop
+            if (window.location.href.includes('auth/login.html') || window.location.href.includes('role-selection.html')) return;
             this.redirectToLogin();
         }
     }

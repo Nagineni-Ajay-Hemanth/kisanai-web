@@ -172,7 +172,7 @@ function loadHomeWeather() {
 
 function setWeatherText(condKey, tempKey) {
     // Helper to set text using translation keys if available
-    const lang = localStorage.getItem('appLanguage') || 'en';
+    const lang = localStorage.getItem('language') || 'en';
     const t = window.translations && window.translations[lang] ? window.translations[lang] : {};
 
     document.getElementById('wConditionHome').textContent = t[condKey] || condKey;
