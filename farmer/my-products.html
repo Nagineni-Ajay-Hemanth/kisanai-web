@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Products - Kisan AI</title>
+    <link rel="stylesheet" href="../shared/style.css">
+    <script src="../shared/api-client.js"></script>
+    <style>
+        body {
+            background-color: var(--bg-body);
+        }
+
+        .product-card {
+            background: white;
+            border-radius: var(--radius-md);
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: var(--shadow-sm);
+            display: flex;
+            gap: 24px;
+            align-items: center;
+            border: 1px solid rgba(0, 0, 0, 0.02);
+            transition: var(--transition-smooth);
+            animation: fadeIn 0.5s ease;
+        }
+
+        .product-card:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .product-img {
+            width: 100px;
+            height: 100px;
+            border-radius: var(--radius-sm);
+            object-fit: cover;
+            background: #f8f9f8;
+            border: 1px solid rgba(0, 0, 0, 0.04);
+        }
+
+        .product-info {
+            flex: 1;
+        }
+
+        .product-name {
+            font-size: 1.25rem;
+            font-weight: 800;
+            color: var(--text-main);
+            margin-bottom: 6px;
+            font-family: var(--font-heading);
+        }
+
+        .product-meta {
+            font-size: 0.95rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 6px 14px;
+            border-radius: var(--radius-lg);
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 12px;
+        }
+
+        .status-available {
+            background: #E8F5E9;
+            color: #2E7D32;
+        }
+
+        .status-sold {
+            background: #FFF3E0;
+            color: #E65100;
+        }
+
+        .product-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .btn-action {
+            padding: 12px 20px;
+            border-radius: var(--radius-sm);
+            border: none;
+            font-weight: 700;
+            cursor: pointer;
+            transition: var(--transition-smooth);
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            min-width: 100px;
+        }
+
+        .btn-edit {
+            background: var(--bg-body);
+            color: var(--primary);
+            border: 1px solid rgba(46, 125, 50, 0.2);
+        }
+
+        .btn-edit:hover {
+            background: var(--primary-light);
+            color: white;
+            border-color: var(--primary-light);
+            transform: translateY(-2px);
+        }
+
+        .btn-delete {
+            background: #FFEBEE;
+            color: #C62828;
+        }
+
+        .btn-delete:hover {
+            background: #D32F2F;
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        .fab {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 65px;
+            height: 65px;
+            border-radius: 50%;
+            background: var(--primary);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            box-shadow: 0 12px 30px rgba(46, 125, 50, 0.3);
+            text-decoration: none;
+            transition: var(--transition-smooth);
+            z-index: 1000;
+            animation: bounceIn 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .fab:hover {
+            transform: scale(1.1) rotate(90deg);
+            box-shadow: 0 16px 40px rgba(46, 125, 50, 0.4);
+        }
+
+        @keyframes bounceIn {
+            0% {
+                transform: scale(0);
+                opacity: 0;
+            }
+
+            50% {
+                transform: scale(1.2);
+            }
+
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <div class="header-brand">
+            <img src="../shared/assets/icon.png" alt="Kisan AI">
+            <h3>My Products</h3>
+        </div>
+        <nav class="header-nav">
+            <button class="nav-icon-btn" onclick="window.location.href='upload-product.html'">
+                <span style="font-size: 24px;">+</span>
+            </button>
+            <button class="nav-icon-btn" onclick="window.location.href='../index.html'">
+                <span style="font-size: 1.2rem;">⬅️</span>
+            </button>
+        </nav>
+    </header>
+
+    <div class="container">
+        <div id="productsContainer" class="product-grid"></div>
+        <div id="emptyState" class="empty-state" style="display: none;">
+            <h3>No Products Yet</h3>
+            <p>Start by uploading your first product!</p>
+            <button class="btn-primary" onclick="window.location.href='upload-product.html'" style="margin-top: 20px;">
+                Upload Product
+            </button>
+        </div>
+    </div>
+
+    <script>
+        SessionManager.requireAuth();
+        const user = SessionManager.getUser();
+
+        if (user.user_type !== 'farmer') {
+            window.location.href = '../customer-index.html';
+        }
+
+        async function loadProducts() {
+            try {
+                const data = await KisanAIApi.getFarmerProducts(user.id);
+                const container = document.getElementById('productsContainer');
+                const emptyState = document.getElementById('emptyState');
+
+                if (data.products.length === 0) {
+                    container.innerHTML = '';
+                    emptyState.style.display = 'block';
+                    return;
+                }
+
+                emptyState.style.display = 'none';
+                container.innerHTML = data.products.map(product => `
+                    <div class="product-card">
+                        <img src="${product.image_url || '../shared/assets/icon.png'}" class="product-img" alt="${product.name}" onerror="this.src='../shared/assets/icon.png'">
+                        <div class="product-info">
+                            <div class="product-name">${product.name}</div>
+                            <div class="product-meta">
+                                📦 ${product.quantity_available} ${product.unit} Available • ₹${product.price}/${product.unit}
+                            </div>
+                            <div class="product-meta" style="margin-top: 4px; font-size: 0.85rem; opacity: 0.8;">
+                                🏷️ Category: ${product.category || 'General'}
+                            </div>
+                            <span class="status-badge status-${product.status || 'available'}">${product.status || 'available'}</span>
+                        </div>
+                        <div class="product-actions">
+                            <button class="btn-action btn-edit" onclick="editProduct(${product.id})">
+                                <span>✏️ Edit</span>
+                            </button>
+                            <button class="btn-action btn-delete" onclick="deleteProduct(${product.id})">
+                                <span>🗑️ Delete</span>
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+
+            } catch (error) {
+                console.error('Error loading products:', error);
+                alert('Failed to load products: ' + error.message);
+            }
+        }
+
+        function editProduct(productId) {
+            window.location.href = `upload-product.html?id=${productId}`;
+        }
+
+        async function deleteProduct(productId) {
+            if (!confirm('Are you sure you want to delete this product? This action cannot be undone.')) {
+                return;
+            }
+
+            try {
+                await KisanAIApi.deleteProduct(productId, user.id);
+                // Success feedback
+                const feedback = document.createElement('div');
+                feedback.innerHTML = '✅ Product deleted successfully';
+                feedback.style = 'position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 12px 24px; border-radius: 30px; z-index: 2000; box-shadow: 0 4px 12px rgba(0,0,0,0.2);';
+                document.body.appendChild(feedback);
+
+                setTimeout(() => {
+                    location.reload();
+                }, 1500);
+            } catch (error) {
+                console.error('Error deleting product:', error);
+                alert('Failed to delete product: ' + error.message);
+            }
+        }
+
+        // Load products on page load
+        loadProducts();
+    </script>
+</body>
+
+</html>

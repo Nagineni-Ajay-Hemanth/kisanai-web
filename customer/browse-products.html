@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Marketplace - Kisan AI</title>
+    <link rel="stylesheet" href="../shared/style.css">
+    <script src="../shared/api-client.js"></script>
+    <style>
+        /* Marketplace Specific Styles */
+        body {
+            background-color: var(--bg-body);
+        }
+
+        .market-header {
+            background: var(--bg-glass);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            padding: 20px;
+            position: sticky;
+            top: 73px;
+            z-index: 900;
+            border-bottom: 1px solid var(--border-glass);
+            margin-bottom: 24px;
+        }
+
+        .search-container {
+            position: relative;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 16px 24px 16px 52px;
+            border: 1px solid rgba(0, 0, 0, 0.05);
+            border-radius: var(--radius-lg);
+            background: white;
+            font-size: 1rem;
+            transition: var(--transition-smooth);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .search-input:focus {
+            border-color: var(--primary-light);
+            box-shadow: var(--shadow-md);
+            outline: none;
+            transform: translateY(-1px);
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--primary);
+            font-size: 1.2rem;
+            opacity: 0.7;
+        }
+
+        .filter-section {
+            padding: 0 24px;
+            margin-bottom: 32px;
+            overflow-x: auto;
+            white-space: nowrap;
+            display: flex;
+            gap: 12px;
+            scrollbar-width: none;
+        }
+
+        .filter-section::-webkit-scrollbar {
+            display: none;
+        }
+
+        .filter-chip {
+            padding: 10px 24px;
+            background: white;
+            border: 1px solid rgba(0, 0, 0, 0.04);
+            border-radius: var(--radius-lg);
+            color: var(--text-secondary);
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition-smooth);
+            font-size: 0.95rem;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .filter-chip.active {
+            background: var(--primary);
+            color: white;
+            box-shadow: 0 8px 20px rgba(46, 125, 50, 0.25);
+            transform: translateY(-2px);
+            border-color: var(--primary);
+        }
+
+        .product-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            padding: 0 20px 100px 20px;
+        }
+
+        @media (min-width: 768px) {
+            .product-grid {
+                grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+                gap: 28px;
+                padding: 0 32px 100px 32px;
+            }
+        }
+
+        .product-card {
+            background: white;
+            border-radius: var(--radius-md);
+            overflow: hidden;
+            box-shadow: var(--shadow-sm);
+            transition: var(--transition-smooth);
+            position: relative;
+            border: 1px solid rgba(0, 0, 0, 0.02);
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .product-card:hover {
+            transform: translateY(-8px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .product-image-container {
+            position: relative;
+            padding-top: 85%;
+            background: #f8f9f8;
+            overflow: hidden;
+        }
+
+        .product-image {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.6s cubic-bezier(0.165, 0.84, 0.44, 1);
+        }
+
+        .product-card:hover .product-image {
+            transform: scale(1.08);
+        }
+
+        .product-details {
+            padding: 16px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .product-category {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            color: var(--primary);
+            font-weight: 700;
+            letter-spacing: 1px;
+            margin-bottom: 6px;
+            opacity: 0.8;
+        }
+
+        .product-name {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--text-main);
+            margin-bottom: 6px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .product-unit {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-bottom: 16px;
+        }
+
+        .price-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: auto;
+        }
+
+        .price {
+            font-weight: 800;
+            color: var(--primary);
+            font-size: 1.25rem;
+        }
+
+        .add-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--bg-body);
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: var(--transition-smooth);
+            font-size: 1.4rem;
+            font-weight: bold;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .product-card:hover .add-btn {
+            background: var(--primary);
+            color: white;
+            transform: rotate(90deg);
+            box-shadow: 0 4px 12px rgba(46, 125, 50, 0.3);
+        }
+
+        /* Skeleton Loading Upgraded */
+        .skeleton {
+            background: linear-gradient(90deg, #f0f0f0 25%, #f8f8f8 50%, #f0f0f0 75%);
+            background-size: 200% 100%;
+            animation: loading 1.5s infinite ease-in-out;
+        }
+
+        @keyframes loading {
+            0% {
+                background-position: 200% 0;
+            }
+
+            100% {
+                background-position: -200% 0;
+            }
+        }
+
+        .skeleton-card {
+            background: white;
+            border-radius: var(--radius-md);
+            overflow: hidden;
+            height: 320px;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .skeleton-img {
+            height: 180px;
+            width: 100%;
+        }
+
+        .skeleton-text {
+            height: 18px;
+            margin: 16px;
+            border-radius: 6px;
+        }
+
+        .skeleton-text.short {
+            width: 50%;
+        }
+
+        /* Empty State Premium */
+        .empty-state {
+            grid-column: 1 / -1;
+            text-align: center;
+            padding: 80px 24px;
+            animation: fadeIn 0.6s ease;
+        }
+
+        .empty-icon {
+            font-size: 5rem;
+            margin-bottom: 24px;
+            display: block;
+            filter: grayscale(1) opacity(0.2);
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <div class="header-brand">
+            <img src="../shared/assets/icon.png" alt="Kisan AI">
+            <h3>Marketplace</h3>
+        </div>
+        <nav class="header-nav">
+            <button class="nav-icon-btn" onclick="window.history.back()">
+                <span style="font-size: 1.2rem;">⬅️</span>
+            </button>
+        </nav>
+    </header>
+
+    <div class="market-header">
+        <div class="search-container">
+            <span class="search-icon">🔍</span>
+            <input type="text" class="search-input" id="searchInput" placeholder="Search fresh produce...">
+        </div>
+    </div>
+
+    <div class="container" style="padding: 0; max-width: 100%;">
+        <div class="filter-section">
+            <div class="filter-chip active" onclick="filterProducts(null, this)">All</div>
+            <div class="filter-chip" onclick="filterProducts('Vegetables', this)">Vegetables</div>
+            <div class="filter-chip" onclick="filterProducts('Fruits', this)">Fruits</div>
+            <div class="filter-chip" onclick="filterProducts('Grains', this)">Grains</div>
+            <div class="filter-chip" onclick="filterProducts('Dairy', this)">Dairy</div>
+            <div class="filter-chip" onclick="filterProducts('Spices', this)">Spices</div>
+        </div>
+
+        <div id="productsContainer" class="product-grid">
+            <!-- Products will be loaded here -->
+        </div>
+    </div>
+
+    <script>
+        SessionManager.requireAuth();
+        const user = SessionManager.getUser();
+
+        if (user.user_type !== 'customer' && user.user_type !== 'farmer') {
+            window.location.href = '../index.html';
+        }
+
+        let currentCategory = null;
+        let searchTimeout;
+
+        // Initial Load
+        document.addEventListener('DOMContentLoaded', () => {
+            renderSkeletons();
+            loadProducts();
+        });
+
+        // Search Listener with Debounce
+        document.getElementById('searchInput').addEventListener('input', (e) => {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                loadProducts(currentCategory, e.target.value);
+            }, 300);
+        });
+
+        async function loadProducts(category = null, search = '') {
+            const container = document.getElementById('productsContainer');
+
+            // Only show skeletons if we are loading a fresh category or empty search
+            if (!container.children.length || category !== currentCategory) {
+                renderSkeletons();
+            }
+
+            try {
+                const data = await KisanAIApi.listProducts(category, search);
+
+                if (data.products.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <span class="empty-icon">🍃</span>
+                            <h3>No fresh produce found</h3>
+                            <p>Try changing your search or category.</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                container.innerHTML = data.products.map(product => `
+                    <div class="product-card" onclick="viewProduct(${product.id})">
+                        <div class="product-image-container">
+                            ${product.image_url
+                        ? `<img src="${product.image_url}" class="product-image" alt="${product.name}" onerror="this.src='../shared/assets/icon.png'">`
+                        : `<div class="product-image" style="background: #e0e0e0; display: flex; align-items: center; justify-content: center; color: #999;">No Image</div>`
+                    }
+                        </div>
+                        <div class="product-details">
+                            <div class="product-category">${product.category || 'Fresh'}</div>
+                            <div class="product-name">${product.name}</div>
+                            <div class="product-unit">Available: ${product.quantity_available} ${product.unit}</div>
+                            <div class="price-row">
+                                <span class="price">₹${product.price}</span>
+                                <div class="add-btn">+</div>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+
+            } catch (error) {
+                console.error('Error loading products:', error);
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <span class="empty-icon">⚠️</span>
+                        <h3>Something went wrong</h3>
+                        <p>We couldn't load the marketplace: ${error.message}</p>
+                        <button class="btn-primary" style="margin-top: 16px; width: auto;" onclick="loadProducts(currentCategory)">Try Again</button>
+                    </div>
+                `;
+            }
+        }
+
+        function renderSkeletons() {
+            const container = document.getElementById('productsContainer');
+            container.innerHTML = Array(6).fill(0).map(() => `
+                <div class="skeleton-card">
+                    <div class="skeleton skeleton-img"></div>
+                    <div class="skeleton skeleton-text"></div>
+                    <div class="skeleton skeleton-text short"></div>
+                </div>
+            `).join('');
+        }
+
+        function filterProducts(category, element) {
+            currentCategory = category;
+
+            // Update UI
+            document.querySelectorAll('.filter-chip').forEach(chip => chip.classList.remove('active'));
+            if (element) {
+                element.classList.add('active');
+            }
+
+            // Get search value if exists
+            const search = document.getElementById('searchInput').value;
+            loadProducts(category, search);
+        }
+
+        function viewProduct(productId) {
+            window.location.href = `product-details.html?id=${productId}`;
+        }
+    </script>
+</body>
+
+</html>

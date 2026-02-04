@@ -1,0 +1,19 @@
+{
+    "name": "kisan-ai-frontend",
+    "version": "1.0.0",
+    "description": "Frontend website for Kisan AI - Plant Disease Detection and Farmer Marketplace",
+    "main": "index.html",
+    "scripts": {
+        "start": "npx -y serve .",
+        "dev": "npx -y browser-sync start --server --files '**/*'",
+        "build": "echo 'No build step required for this static site.' && exit 0"
+    },
+    "keywords": [
+        "agritech",
+        "kisan-ai",
+        "fastapi",
+        "javascript"
+    ],
+    "author": "Ajay Hemanth",
+    "license": "MIT"
+}

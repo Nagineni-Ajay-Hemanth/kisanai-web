@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Orders - Kisan AI</title>
+    <link rel="stylesheet" href="../shared/style.css">
+    <script src="../shared/api-client.js"></script>
+    <style>
+        body {
+            background-color: var(--bg-body);
+        }
+
+        .order-card {
+            background: white;
+            border-radius: var(--radius-md);
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: var(--shadow-sm);
+            border: 1px solid rgba(0, 0, 0, 0.02);
+            transition: var(--transition-smooth);
+            animation: fadeIn 0.5s ease;
+        }
+
+        .order-card:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .order-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+        }
+
+        .order-status {
+            padding: 8px 16px;
+            border-radius: var(--radius-lg);
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .status-pending {
+            background: #FFF3E0;
+            color: #F57C00;
+        }
+
+        .status-accepted {
+            background: #E3F2FD;
+            color: #1976D2;
+        }
+
+        .status-confirmed {
+            background: #E8F5E9;
+            color: #388E3C;
+        }
+
+        .status-rejected {
+            background: #FFEBEE;
+            color: #D32F2F;
+        }
+
+        .order-info {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            margin: 8px 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .order-info strong {
+            color: var(--text-main);
+            min-width: 140px;
+            font-weight: 700;
+        }
+
+        .order-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 24px;
+            padding-top: 20px;
+            border-top: 1px solid rgba(0, 0, 0, 0.04);
+        }
+
+        .btn-small {
+            padding: 14px 24px;
+            font-size: 0.95rem;
+            border-radius: var(--radius-sm);
+            border: none;
+            cursor: pointer;
+            flex: 1;
+            font-weight: 700;
+            transition: var(--transition-smooth);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .btn-accept {
+            background: var(--primary);
+            color: white;
+            box-shadow: 0 4px 12px rgba(46, 125, 50, 0.2);
+        }
+
+        .btn-accept:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(46, 125, 50, 0.3);
+        }
+
+        .btn-reject {
+            background: #FFEBEE;
+            color: #C62828;
+        }
+
+        .btn-reject:hover {
+            background: #D32F2F;
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        .btn-view {
+            background: var(--bg-body);
+            color: var(--primary);
+            border: 1px solid rgba(46, 125, 50, 0.1);
+        }
+
+        .tab-container {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 32px;
+            background: var(--bg-glass);
+            padding: 6px;
+            border-radius: var(--radius-md);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(0, 0, 0, 0.04);
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            border-radius: calc(var(--radius-md) - 6px);
+            font-weight: 700;
+            color: var(--text-secondary);
+            transition: var(--transition-smooth);
+            font-size: 0.9rem;
+        }
+
+        .tab-btn.active {
+            background: white;
+            color: var(--primary);
+            box-shadow: var(--shadow-sm);
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <div class="header-brand">
+            <img src="../shared/assets/icon.png" alt="Kisan AI">
+            <h3>My Orders</h3>
+        </div>
+        <nav class="header-nav">
+            <button class="nav-icon-btn" onclick="window.location.href='../index.html'">
+                <img src="../shared/assets/advice.png" alt="back">
+            </button>
+        </nav>
+    </header>
+
+    <div class="container">
+        <div class="tab-container">
+            <button class="tab-btn active" onclick="filterOrders('pending')">Pending</button>
+            <button class="tab-btn" onclick="filterOrders('accepted')">Accepted</button>
+            <button class="tab-btn" onclick="filterOrders('confirmed')">Confirmed</button>
+            <button class="tab-btn" onclick="filterOrders(null)">All</button>
+        </div>
+
+        <div id="ordersContainer"></div>
+        <div id="emptyState"
+            style="text-align: center; padding: 60px 20px; color: var(--text-secondary); display: none;">
+            <h3>No Orders Yet</h3>
+            <p>Orders from customers will appear here</p>
+        </div>
+    </div>
+
+    <script>
+        SessionManager.requireAuth();
+        const user = SessionManager.getUser();
+
+        if (user.user_type !== 'farmer') {
+            window.location.href = '../customer-index.html';
+        }
+
+        let currentFilter = 'pending';
+
+        async function loadOrders(status = null) {
+            try {
+                const data = await KisanAIApi.getFarmerOrders(user.id, status);
+
+                const container = document.getElementById('ordersContainer');
+                const emptyState = document.getElementById('emptyState');
+
+                if (data.orders.length === 0) {
+                    container.innerHTML = '';
+                    emptyState.style.display = 'block';
+                    return;
+                }
+
+                emptyState.style.display = 'none';
+                container.innerHTML = data.orders.map(order => `
+                    <div class="order-card">
+                        <div class="order-header">
+                            <h3 style="color: var(--primary); margin: 0;">Order #${order.id}</h3>
+                            <span class="order-status status-${order.status}">${order.status.toUpperCase()}</span>
+                        </div>
+                        <p class="order-info"><strong>Product:</strong> ${order.product_name}</p>
+                        <p class="order-info"><strong>Quantity:</strong> ${order.quantity} ${order.unit}</p>
+                        <p class="order-info"><strong>Customer:</strong> ${order.customer_name} (${order.customer_mobile})</p>
+                        <p class="order-info"><strong>Product Price:</strong> ₹${order.product_price}</p>
+                        ${order.delivery_charge ? `<p class="order-info"><strong>Delivery Charge:</strong> ₹${order.delivery_charge}</p>` : ''}
+                        ${order.total_price ? `<p class="order-info"><strong>Total:</strong> ₹${order.total_price}</p>` : ''}
+                        ${order.distance_km ? `<p class="order-info"><strong>Distance:</strong> ${order.distance_km} km</p>` : ''}
+                        <p class="order-info"><strong>Payment:</strong> ${order.payment_status || 'Unpaid'}</p>
+                        <div class="order-actions">
+                            ${order.status === 'pending' ? `
+                                <button class="btn-small btn-accept" onclick="acceptOrder(${order.id})">Accept</button>
+                                <button class="btn-small btn-reject" onclick="rejectOrder(${order.id})">Reject</button>
+                            ` : `
+                                <button class="btn-small btn-view" onclick="viewOrder(${order.id})">View Details</button>
+                            `}
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Error loading orders:', error);
+                alert('Failed to load orders: ' + error.message);
+            }
+        }
+
+        function filterOrders(status) {
+            currentFilter = status;
+            // Update active tab
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            loadOrders(status);
+        }
+
+        async function acceptOrder(orderId) {
+            // Get farmer location
+            if (!navigator.geolocation) {
+                alert('Geolocation is not supported by your browser');
+                return;
+            }
+
+            navigator.geolocation.getCurrentPosition(async (position) => {
+                try {
+                    const data = await KisanAIApi.acceptOrder(
+                        orderId,
+                        position.coords.latitude,
+                        position.coords.longitude,
+                        user.id
+                    );
+
+                    alert(`Order accepted!\nDistance: ${data.distance_km} km\nDelivery Charge: ₹${data.delivery_charge}\nTotal: ₹${data.total_price}`);
+                    loadOrders(currentFilter);
+                } catch (error) {
+                    console.error('Error accepting order:', error);
+                    alert('Failed to accept order: ' + error.message);
+                }
+            }, (error) => {
+                alert('Unable to get your location. Please enable location services.');
+            });
+        }
+
+        async function rejectOrder(orderId) {
+            if (!confirm('Are you sure you want to reject this order?')) {
+                return;
+            }
+
+            try {
+                await KisanAIApi.rejectOrder(orderId, user.id);
+                alert('Order rejected');
+                loadOrders(currentFilter);
+            } catch (error) {
+                console.error('Error rejecting order:', error);
+                alert('Failed to reject order: ' + error.message);
+            }
+        }
+
+        function viewOrder(orderId) {
+            window.location.href = `order-details.html?id=${orderId}`;
+        }
+
+        // Load pending orders by default
+        loadOrders('pending');
+
+        // Auto-refresh every 30 seconds
+        setInterval(() => loadOrders(currentFilter), 30000);
+    </script>
+</body>
+
+</html>
